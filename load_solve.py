@@ -43,7 +43,7 @@ def load_json(path):
 def visualize_rays(wf_ray_dir: np.ndarray, ray_o: np.ndarray):
     import open3d as o3d
     import open3d.visualization.gui as gui
-    from utils import get_arrow, np_rotation_between
+    from utils import get_arrow
 
     app = gui.Application.instance
     app.initialize()
@@ -71,7 +71,6 @@ if __name__ == "__main__":
     print("This is a drill.")
     opts = parse_args()
     Ts, K, pix, gt, wf_ray_dir = load_json(opts.input)
-
     # visualize_rays(wf_ray_dir, Ts[..., -1])
 
     if opts.solver == '3d':

@@ -108,6 +108,10 @@ def output(Rs: np.ndarray, ts: np.ndarray, gt_pos: np.ndarray, pix_pos: np.ndarr
         json.dump(json_file, file, indent = 4)
     sio.savemat("./data1.mat", matlab_file)
 
+def multiple_output():
+    """ Generate points on a 3D plane and output observations on all cameras """
+    pass
+
 if __name__ == "__main__":
     sh_samples = quasi_uniform_eighth_spherical_sampling()
     # sh_samples are T
