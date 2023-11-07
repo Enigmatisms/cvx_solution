@@ -1,14 +1,20 @@
+#-*-coding:utf-8-*-
+"""
+    Generate data to be of used
+    @author: Qianyue He
+    @date: 2023-11-6
+"""
+
 import json
 import numpy as np
+import open3d as o3d
 import scipy.io as sio
+import open3d.visualization.gui as gui
 
 from scipy.stats import qmc
-
-import open3d as o3d
-import open3d.visualization.gui as gui
 from utils import get_arrow, np_rotation_between
 
-RANDOM_SEED = 114515
+RANDOM_SEED = 114515        # such a smelly number!
 
 K = np.float32([
     [1500, 0, 400], 
@@ -89,13 +95,13 @@ def output(Rs: np.ndarray, ts: np.ndarray, gt_pos: np.ndarray, pix_pos: np.ndarr
     json_file = {
         "camera-tranforms": Ts.tolist(),
         "camera-intrinsic": K.tolist(),
-        "pixel-position": pix_pos.tolist(),
+        "pixel-positions": pix_pos.tolist(),
         "gt": gt_pos.tolist()
     }
     matlab_file = {
         "camera-tranforms": Ts,
         "camera-intrinsic": K,
-        "pixel-position": pix_pos,
+        "pixel-positions": pix_pos,
         "gt": gt_pos
     }
     with open("./data1.json", 'w', encoding = 'utf-8') as file:

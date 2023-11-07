@@ -2,7 +2,7 @@
 """
     Utility functions
     @author: Qianyue He
-    @date: 2022-12-13
+    @date: (originally) 2022-12-13, modified (2023-11-6)
 """
 
 import scipy.io
