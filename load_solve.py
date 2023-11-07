@@ -33,7 +33,9 @@ def load_json(path):
     K   = np.float32(data['camera-intrinsic'])
     pix = np.float32(data['pixel-positions'])
     gt  = np.float32(data['gt'])
-    wf_ray_dir = Ts[..., :3] @ np.tile(np.float32([[0], [0], [1]]), (Ts.shape[0], 1, 1))
+    homo_pix = np.concatenate((pix, np.ones((pix.shape[0], 1), dtype = pix.dtype)), axis = -1)
+    cf_dir = np.linalg.inv(K)[None, ...] @ homo_pix[..., None]
+    wf_ray_dir = Ts[..., :3] @ cf_dir
     wf_ray_dir = wf_ray_dir.squeeze()
     wf_ray_dir /= np.linalg.norm(wf_ray_dir, axis = -1, keepdims = True)
     return Ts, K, pix, gt, wf_ray_dir
