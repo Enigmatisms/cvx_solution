@@ -21,17 +21,13 @@ class AnalyitcalSolver:
             wf_origins: world frame ray origins
             wf_ray_dir: world frame ray directions
         """
-        As = np.eye(3) - self.wf_ray_dir @ np.transpose(self.wf_ray_dir, [0, 2, 1])
-        p = np.sum(As @ self.wf_origins, axis = 0)
-        A = np.sum(As, axis = 0)
-        u, s, vt = np.linalg.svd(A)
-        abs_last_v = abs(s[-1])
-        if abs_last_v < 1e-3:
-            if verbose:
-                print(f"The last eigen value is too small: {abs_last_v}. Ill-conditioned matrix.") 
-            s[-1] = s[-1] / abs_last_v * 1e-3 
-        inv_A = vt.T @ np.diag(1 / s) @ u.T
-        return inv_A @ p 
+        # `As` is of shape (N, 3, 3)
+        As = np.tile(np.eye(3, dtype = np.float32), (self.wf_ray_dir.shape[0], 1, 1)) - self.wf_ray_dir[..., None] @ self.wf_ray_dir[:, None, :]
+        p = np.sum(As @ self.wf_origins[..., None], axis = 0)       # of shape (3, 1)
+        A = np.sum(As, axis = 0)                                    # shape (3, 3)
+        print(A)
+        print(p)
+        return (np.linalg.inv(A) @ p).ravel()
     
 class SolverBase:
     def __init__(self, max_iter, huber_param = -1.0) -> None:
@@ -50,21 +46,24 @@ class Solver3DSpaceDistance(SolverBase):
         super().__init__(max_iter, huber_param)
         self.wf_origins = wf_origins
         self.wf_ray_dir = wf_ray_dir
-        self.pos = cp.Variable((1, 3))
+        self.pos = cp.Variable(3)
 
     def solve(self, verbose = False):
         """ The cvxpy 3D space solver """
-        pos_diff    = self.wf_origins - self.pos
-        proj_length = cp.multiply(self.wf_ray_dir, pos_diff).sum(axis = 1)             # stupid CVXPY does not recognize axis = -1, what a joke
-        print(proj_length)
-        distance2   = cp.multiply(pos_diff, pos_diff).sum(axis = 1) - proj_length ** 2
+        loss = 0
+        for ray_o, ray_d in zip(self.wf_origins, self.wf_ray_dir):
+            pos_diff = self.pos - ray_o
+            proj_length = cp.sum(cp.multiply(ray_d, pos_diff))
+            loss += cp.sum(pos_diff ** 2) - proj_length ** 2
         if self.huber_param > 1e-2:         # valid huber param
             loss = 0
             for item in distance2:
                 loss += cp.huber(item, self.huber_param)
             problem = cp.Problem(cp.Minimize(loss))
         else:
-            problem = cp.Problem(cp.Minimize(cp.sum(distance2)))
+            obj = cp.Minimize(loss)
+            print(obj.is_dcp())
+            problem = cp.Problem(obj)
         start_time = time.time()
         if verbose:
             print(f"Start solving... ray num: {self.wf_origins.shape[0]}. Huber Loss Used = [{self.huber_param > 1e-2}]")
@@ -77,6 +76,31 @@ class Solver3DSpaceDistance(SolverBase):
             print("The optimal value is", problem.value)
             print("Optimal solution:", solution.ravel())
         return solution
+    
+    # def solve(self, verbose = False):
+    #     """ The cvxpy 3D space solver """
+    #     pos_diff    = self.wf_origins - self.pos
+    #     proj_length = cp.multiply(self.wf_ray_dir, pos_diff).sum(axis = 1)             # stupid CVXPY does not recognize axis = -1, what a joke
+    #     distance2   = cp.multiply(pos_diff, pos_diff).sum(axis = 1) - proj_length ** 2
+    #     if self.huber_param > 1e-2:         # valid huber param
+    #         loss = 0
+    #         for item in distance2:
+    #             loss += cp.huber(item, self.huber_param)
+    #         problem = cp.Problem(cp.Minimize(loss))
+    #     else:
+    #         problem = cp.Problem(cp.Minimize(cp.sum(distance2 ** 2)))
+    #     start_time = time.time()
+    #     if verbose:
+    #         print(f"Start solving... ray num: {self.wf_origins.shape[0]}. Huber Loss Used = [{self.huber_param > 1e-2}]")
+
+    #     problem.solve()
+    #     end_time = time.time()
+    #     solution = self.pos.value.ravel()
+    #     if verbose:
+    #         print(f"Problem solved. Time consumption: {end_time - start_time:.3f}")
+    #         print("The optimal value is", problem.value)
+    #         print("Optimal solution:", solution.ravel())
+    #     return solution
     
 class Solver2DReprojectionErr(SolverBase):
     """ This is the solver for minizing 2D space reprojection error

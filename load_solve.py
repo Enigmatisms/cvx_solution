@@ -31,17 +31,46 @@ def load_json(path):
         data = json.load(file)
     Ts  = np.float32(data['camera-tranforms'])
     K   = np.float32(data['camera-intrinsic'])
-    pix = np.float32(data['pixel-position'])
+    pix = np.float32(data['pixel-positions'])
     gt  = np.float32(data['gt'])
     wf_ray_dir = Ts[..., :3] @ np.tile(np.float32([[0], [0], [1]]), (Ts.shape[0], 1, 1))
     wf_ray_dir = wf_ray_dir.squeeze()
     wf_ray_dir /= np.linalg.norm(wf_ray_dir, axis = -1, keepdims = True)
     return Ts, K, pix, gt, wf_ray_dir
 
+def visualize_rays(wf_ray_dir: np.ndarray, ray_o: np.ndarray):
+    import open3d as o3d
+    import open3d.visualization.gui as gui
+    from utils import get_arrow, np_rotation_between
+
+    app = gui.Application.instance
+    app.initialize()
+    vis = o3d.visualization.O3DVisualizer("Open3D - Spherical sample visualize", 1024, 768)
+    vis.set_background((0.3, 0.3, 0.3, 1), None)
+    vis.show_settings = True
+    vis.show_skybox(False)
+    vis.show_axes = True
+
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(ray_o)
+    pcd.colors = o3d.utility.Vector3dVector(np.tile(np.float32([0, 0, 1]), (ray_o.shape[0], 1)))
+    vis.add_geometry('sample pos', pcd)
+    for i, (po, v) in enumerate(zip(ray_o, wf_ray_dir)):
+        arrow = get_arrow(po, po + v * 2, length = 0.2, scale=0.8, color = (1, 0, 0))
+        vis.add_geometry(f"arrow {i+1}", arrow)
+   
+    vis.reset_camera_to_default()
+
+    app.add_window(vis)
+    app.run()
+    app.quit()
+
 if __name__ == "__main__":
     print("This is a drill.")
     opts = parse_args()
     Ts, K, pix, gt, wf_ray_dir = load_json(opts.input)
+
+    # visualize_rays(wf_ray_dir, Ts[..., -1])
 
     if opts.solver == '3d':
         solver = Solver3DSpaceDistance(Ts[..., -1], wf_ray_dir, opts.max_iter, opts.huber_param)

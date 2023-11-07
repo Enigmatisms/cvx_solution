@@ -114,7 +114,7 @@ if __name__ == "__main__":
     sh_samples = radial_perturb(sh_samples)
     # rotation matrices
     Rs = get_all_rotation(sh_samples, True)
-    gt_pos = np.float32([-0.2, 0.1, 0.4])
+    gt_pos = np.float32([-0.5, 0.2, -0.2])
     all_proj = get_3d_projection(gt_pos, Rs, sh_samples)
     output(Rs, sh_samples, gt_pos, all_proj)
     visualize_spherical_samples(sh_samples)
