@@ -50,20 +50,14 @@ class Solver3DSpaceDistance(SolverBase):
 
     def solve(self, verbose = False):
         """ The cvxpy 3D space solver """
-        loss = 0
+        mat_A  = np.zeros((3, 3), dtype = np.float32)
+        mat_Ap = np.zeros((1, 3), dtype = np.float32)
         for ray_o, ray_d in zip(self.wf_origins, self.wf_ray_dir):
-            pos_diff = self.pos - ray_o
-            proj_length = cp.sum(cp.multiply(ray_d, pos_diff))
-            loss += cp.sum(pos_diff ** 2) - proj_length ** 2
-        if self.huber_param > 1e-2:         # valid huber param
-            loss = 0
-            for item in distance2:
-                loss += cp.huber(item, self.huber_param)
-            problem = cp.Problem(cp.Minimize(loss))
-        else:
-            obj = cp.Minimize(loss)
-            print(obj.is_dcp())
-            problem = cp.Problem(obj)
+            A  = np.eye(3) - ray_d[:, None] @ ray_d[None, :]
+            Ap = ray_o[None, :] @ A 
+            mat_A  += A
+            mat_Ap += Ap
+        problem = cp.Problem(cp.Minimize(cp.quad_form(self.pos, mat_A) - 2 * mat_Ap @ self.pos))
         start_time = time.time()
         if verbose:
             print(f"Start solving... ray num: {self.wf_origins.shape[0]}. Huber Loss Used = [{self.huber_param > 1e-2}]")
@@ -123,11 +117,13 @@ class Solver2DReprojectionErr(SolverBase):
         loss = 0
         for R, t, pix in zip(self.Rs, self.ts, self.pix_pos):
             cf_pos = R.T @ (self.pos - t)
-            pix_coords = (self.K @ cf_pos)[:2, :]
+            pix_coords = (self.K @ cf_pos)
+            pix_coords /= pix_coords[-1, 0]
+            pix_coords = pix_coords[:2, 0]
             if self.huber_param > 1e-2:
                 loss += cp.huber(pix.astype(np.float32) - pix_coords, self.huber_param)
             else:
-                loss += ((pix.astype(np.float32) - pix_coords) ** 2).sum()
+                loss += cp.sum((pix.astype(np.float32) - pix_coords) ** 2)
 
         problem = cp.Problem(cp.Minimize(loss))
         start_time = time.time()
